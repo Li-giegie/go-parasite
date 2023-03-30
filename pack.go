@@ -73,7 +73,7 @@ func (p *Pack) Marshal() ([]*SubPack,error) {
 	return subPacks,nil
 }
 
-func (p *Pack) Unmarshal(conn io.Reader) (*SubPack,error) {
+func (p *Pack) Unmarshal(data chan []byte) (*SubPack,error) {
 
 	return nil,nil
 }
@@ -95,6 +95,13 @@ func (p *SubPack) Marshal() ([]byte,error)  {
 		return nil,errors.NewErrors("subPack marshal err: ",idE,snE,lE)
 	}
 	return buf.Bytes(),nil
+}
+
+func (p *SubPack) Unmarshal(data []byte)  {
+	p.ID = binary.LittleEndian.Uint32(data[:4])
+	p.SN = binary.LittleEndian.Uint32(data[4:8])
+	p.Length = binary.LittleEndian.Uint32(data[8:12])
+	p.Msg = data[12:]
 }
 
 func countNullPackJsonLength(){
