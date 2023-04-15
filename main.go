@@ -25,7 +25,7 @@ func Srv() {
 }
 
 func Cli() {
-	cli, err := NewClient(DefaultServerAddress, DefaultClientAddress)
+	cli, err := NewClient(DefaultServerAddress,SetLocalAddr("127.0.0.1:9999"))
 	if err != nil {
 		log.Fatalln(err)
 	}

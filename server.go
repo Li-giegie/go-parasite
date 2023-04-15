@@ -3,25 +3,20 @@ package main
 import (
 	"log"
 	"net"
-	"strconv"
 	"sync"
 )
 
 type Server struct {
 	conn               *net.UDPConn
-	localAddr          *net.UDPAddr
-	bufferSize         int
-	MaxReceivePackSize int
 	cache              sync.Map
+	conf
 }
 
-func NewServer(addr ...string) (*Server, error) {
-	localAddr, lErr := net.ResolveUDPAddr(ProtocolUDP, DefaultServerAddress)
-	if lErr != nil {
-		return nil, lErr
-	}
-
-	return &Server{localAddr: localAddr, bufferSize: DefaultBufferSize, MaxReceivePackSize: DefaultBufferSize}, nil
+func NewServer(options ...Option) (*Server, error) {
+	var srv = new(Server)
+	option := margeOption(options,isServer)
+	option.initOption(srv)
+	return srv, nil
 }
 
 func (s *Server) ListenAndServer() (_err error) {
@@ -31,7 +26,7 @@ func (s *Server) ListenAndServer() (_err error) {
 	}
 	defer s.conn.Close()
 	for {
-		buf, addr, err := Read(s.conn, s.bufferSize)
+		buf, addr, err := Read(s.conn, s.byteBufferSize)
 		if err != nil {
 			log.Fatalln("server read data err:", err)
 		}
@@ -41,13 +36,14 @@ func (s *Server) ListenAndServer() (_err error) {
 }
 
 func (s *Server) Receive(buf []byte, addr *net.UDPAddr) {
-	_pack := new(Pack)
-	_pack.Unmarshal(buf)
-	if !_pack.Cheek() {
+	_pack,ok := UnmarshalPack(buf)
+	if !ok {
 		log.Println("丢弃的包------", _pack.String())
 		return
 	}
-	key := addr.String() + strconv.Itoa(int(_pack.ID))
-	add_PackCache(&s.cache, key, _pack)
+	if _pack.Length == 1 && _pack.SN == 1 {
+		log.Println("接收包1次完成")
+		return
+	}
 
 }

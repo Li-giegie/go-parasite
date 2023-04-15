@@ -28,7 +28,7 @@ func countNumLenUint32(n uint32) int {
 	return len(strconv.Itoa(int(n)))
 }
 
-func Sum(i int) int {
+func Sum(i uint32) uint32 {
 	if i == 1 {
 		return 1
 	}

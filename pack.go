@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"net"
+	"sort"
 	"strconv"
 	"sync"
 
@@ -15,7 +16,8 @@ import (
 
 var _PackAutoID uint32
 var _lock sync.Mutex
-var PackBufSize int = DefaultBufferSize
+
+var PackBufSize int = DefaultByteBufferSize
 
 type PackAndAddress struct {
 	pack *Pack
@@ -97,12 +99,14 @@ func (p *Pack) Marshal() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (p *Pack) Unmarshal(data []byte) {
-	p.ID = binary.LittleEndian.Uint32(data[:4])
-	p.SN = binary.LittleEndian.Uint32(data[4:8])
-	p.Length = binary.LittleEndian.Uint32(data[8:12])
-	p.Md5Sum = binary.LittleEndian.Uint16(data[12:14])
-	p.Msg = data[14:]
+func UnmarshalPack(buf []byte) (*Pack,bool) {
+	var p = new(Pack)
+	p.ID = binary.LittleEndian.Uint32(buf[:4])
+	p.SN = binary.LittleEndian.Uint32(buf[4:8])
+	p.Length = binary.LittleEndian.Uint32(buf[8:12])
+	p.Md5Sum = binary.LittleEndian.Uint16(buf[12:14])
+	p.Msg = buf[14:]
+	return p,p.Cheek()
 }
 
 func (p *Pack) SumMd5() uint16 {
@@ -123,6 +127,44 @@ func (p *Pack) String() string {
 }
 
 type Packs []*Pack
+
+// sn不相同事合并成功
+func (p Packs) Append(pa *Pack) bool  {
+	for _, pack := range p {
+		if pack.SN == pa.SN {
+			return false
+		}
+	}
+	p = append(p, pa)
+	return true
+}
+
+// 检查包体完整性
+func (p Packs) CheckIntegrality() bool {
+	var sum uint32
+
+	for _, pack := range p {
+		sum+=pack.SN
+	}
+	if Sum(p[0].ID) == sum {
+		return true
+	}
+
+	return false
+}
+
+func (t *task) Marge() *Pack {
+	sort.Sort(t.packs)
+	var pack *Pack
+	for i:=0;i<int(t.packs[0].Length);i++{
+		pack.Msg = append(pack.Msg, t.packs[i].Msg...)
+	}
+	pack.ID = t.packs[0].ID
+	pack.Length = t.packs[0].Length
+	pack.SN = t.packs[0].SN
+	pack.Md5Sum = t.packs[0].Md5Sum
+	return pack
+}
 
 func (p Packs) Len() int {
 	return len(p)
