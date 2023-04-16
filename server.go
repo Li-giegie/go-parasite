@@ -26,7 +26,7 @@ func (s *Server) ListenAndServer() (_err error) {
 	}
 	defer s.conn.Close()
 	for {
-		buf, addr, err := Read(s.conn, s.byteBufferSize)
+		buf, addr, err := _read(s.conn, s.byteBufferSize)
 		if err != nil {
 			log.Fatalln("server read data err:", err)
 		}
@@ -45,5 +45,6 @@ func (s *Server) Receive(buf []byte, addr *net.UDPAddr) {
 		log.Println("接收包1次完成")
 		return
 	}
+
 
 }

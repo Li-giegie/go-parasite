@@ -14,7 +14,7 @@ func main() {
 }
 
 func Srv() {
-	srv, err := NewServer(DefaultServerAddress)
+	srv, err := NewServer(SetLocalAddr(DefaultServerAddress))
 	if err != nil {
 		log.Fatalln(err)
 	}

@@ -4,7 +4,6 @@ import (
 	"log"
 	"net"
 	"sync"
-	"time"
 )
 
 type Reply struct {
@@ -62,77 +61,7 @@ func (c *Client) Connect() error {
 }
 
 func (c *Client) Receive() {
-	defer c.conn.Close()
-	for {
-		buf, _, err := Read(c.conn, c.byteBufferSize)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		pack,ok := UnmarshalPack(buf)
-		if !ok {
-			log.Println("验证失败的消息")
-			continue
-		}
-		if pack.Length == 1 && pack.SN == 1 {
-			c.responsePack <- pack
-			log.Println("接收包1次完成")
-			continue
-		}
-		v,ok := c.taskCache.Load(pack.ID)
-		if !ok {
-			log.Println("不存在消息任务新建一个")
-			tmpTask :=NewTask(pack)
-			c.taskCache.Store(pack.ID,tmpTask)
-			go tmpTask.run()
-			continue
-		}
-		tmpTask := v.(*task)
-		if !tmpTask.isClose {
-			log.Println("消息任务：向管道添加消息")
-			tmpTask.packChan <- pack
-			continue
-		}
-		log.Println("向已经关闭的消息发送------",pack.ID)
-	}
-}
-
-type task struct {
-	id uint32
-	packs Packs
-	isClose bool
-	packChan chan *Pack
-	updateTime int64
-}
-func NewTask(pack *Pack) *task {
-	return &task{
-		id:         pack.ID,
-		packs:      Packs{pack},
-		updateTime: time.Now().UnixMilli(),
-	}
-}
-func (t *task) run()  {
-	var ti = time.NewTicker(time.Millisecond*300)
-	for  {
-		select {
-		case pack := <- t.packChan:
-			d := time.Now().UnixMilli()-t.updateTime
-			if d <= 30 {
-				d = 100
-			}
-			t.updateTime = d
-			t.packs.Append(pack)
-			if t.packs.CheckIntegrality() {
-				t.isClose = true
-				close(t.packChan)
-				ti.Stop()
-				return
-			}
-			ti.Reset(time.Millisecond * time.Duration(d))
-
-		case <-ti.C:
-			log.Println("超时任务：",t.id)
-		}
-	}
+	_Receive(c.conn,c.byteBufferSize,c.responsePack,&c.taskCache)
 }
 
 func (c *Client) Send(data []byte) (Reply,error) {

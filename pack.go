@@ -115,7 +115,7 @@ func (p *Pack) SumMd5() uint16 {
 	_ = binary.Write(buf, binary.LittleEndian, p.SN)
 	_ = binary.Write(buf, binary.LittleEndian, p.Length)
 	_, _ = buf.Write(p.Msg)
-	return sumMd5(getMd5(buf.Bytes()))
+	return _sumMd5(_getMd5(buf.Bytes()))
 }
 
 func (p *Pack) Cheek() bool {
@@ -141,28 +141,35 @@ func (p Packs) Append(pa *Pack) bool  {
 
 // 检查包体完整性
 func (p Packs) CheckIntegrality() bool {
-	var sum uint32
 
-	for _, pack := range p {
-		sum+=pack.SN
+	if p.Len() < int(p[0].Length) {
+		return false
 	}
-	if Sum(p[0].ID) == sum {
+
+	var sum uint32
+	sort.Sort(p)
+	for i:=0;i<int(p[0].Length);i++{
+		sum+=p[i].SN
+	}
+	if _sum(p[0].Length) == sum {
 		return true
 	}
 
 	return false
 }
 
-func (t *task) Marge() *Pack {
-	sort.Sort(t.packs)
-	var pack *Pack
-	for i:=0;i<int(t.packs[0].Length);i++{
-		pack.Msg = append(pack.Msg, t.packs[i].Msg...)
+func (p Packs) Marge() *Pack {
+	sort.Sort(p)
+	var pack = &Pack{
+		ID:     p[0].ID,
+		SN:     p[0].SN,
+		Length: p[0].Length,
+		Md5Sum: p[0].Md5Sum,
+		Msg:    make([]byte,0),
 	}
-	pack.ID = t.packs[0].ID
-	pack.Length = t.packs[0].Length
-	pack.SN = t.packs[0].SN
-	pack.Md5Sum = t.packs[0].Md5Sum
+	for i:=0;i<int(p[0].Length);i++{
+		pack.Msg = append(pack.Msg, p[i].Msg...)
+	}
 	return pack
 }
 
